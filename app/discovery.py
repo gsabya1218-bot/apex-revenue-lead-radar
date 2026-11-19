@@ -1,7 +1,7 @@
 """Collect recent public commercial signals from Google News RSS.
 
 This is a discovery queue, not an automated buyer-qualification engine.
-Every inserted record is marked research_required for human verification.
+The database default qualification_status is preserved; every discovery record still requires human verification.
 """
 import os
 import re
@@ -134,8 +134,8 @@ def main():
                     cur.execute(
                         """INSERT INTO leads
                            (company_name, country, commercial_trigger, evidence_summary,
-                            evidence_url, evidence_date, source_name, fit_score, qualification_status)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, NULL, 'research_required')""",
+                            evidence_url, evidence_date, source_name, fit_score)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, NULL)""",
                         (company, "United States" if region == "USA" else None, title[:1000], summary, url, parse_date(pub), source or "Google News RSS"),
                     )
                     inserted += 1
