@@ -1,6 +1,8 @@
 name: Apex Revenue Lead Discovery
 
 on:
+  push:
+    branches: [main]
   schedule:
     # 08:00 India Standard Time (02:30 UTC), every day
     - cron: "30 2 * * *"
