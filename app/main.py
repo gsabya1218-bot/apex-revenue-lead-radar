@@ -1,6 +1,8 @@
 import hmac
 import logging
 import os
+import socket
+from urllib.parse import urlparse
 from contextlib import closing
 from datetime import date
 from typing import Optional
@@ -13,7 +15,7 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("apex-radar")
 
-app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.1")
+app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.2")
 
 
 def db_connection():
@@ -48,7 +50,7 @@ class LeadInput(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.1"}
+    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.2"}
 
 
 @app.get("/health")
@@ -58,35 +60,69 @@ def health():
 
 @app.get("/db-health")
 def db_health():
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise HTTPException(
+            status_code=503,
+            detail={"database": "disconnected", "diagnostic": "missing_database_url"}
+        )
+
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port or 5432
+    if not host:
+        raise HTTPException(
+            status_code=503,
+            detail={"database": "disconnected", "diagnostic": "invalid_database_url"}
+        )
+
+    # Test DNS and TCP separately so a network failure is not confused
+    # with PostgreSQL authentication or SSL configuration.
+    try:
+        socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except Exception as exc:
+        logger.error("Database DNS probe failed: exception_type=%s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail={"database": "disconnected", "diagnostic": "dns_lookup_failed",
+                    "exception_type": type(exc).__name__}
+        )
+
+    try:
+        with closing(socket.create_connection((host, port), timeout=6)):
+            pass
+    except Exception as exc:
+        logger.error("Database TCP probe failed: exception_type=%s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail={"database": "disconnected", "diagnostic": "tcp_connection_failed",
+                    "exception_type": type(exc).__name__}
+        )
+
     try:
         with closing(db_connection()) as conn:
             with conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT 1")
                     cur.fetchone()
-        return {"database": "connected"}
+        return {"database": "connected", "dns": "ok", "tcp": "ok", "postgres": "ok"}
     except Exception as exc:
         message = str(exc).lower()
-        if "could not translate host name" in message or "name or service not known" in message or "temporary failure in name resolution" in message:
-            category = "dns_or_pooler_hostname"
-        elif "timeout" in message or "timed out" in message or "network is unreachable" in message or "connection refused" in message:
-            category = "network_or_port"
-        elif "password authentication failed" in message or "authentication failed" in message or "tenant or user not found" in message:
+        if "password authentication failed" in message or "authentication failed" in message or "tenant or user not found" in message:
             category = "credentials_or_pooler_username"
         elif "ssl" in message or "certificate" in message:
             category = "ssl_configuration"
         elif "does not exist" in message and "database" in message:
             category = "database_name"
-        elif "database_url is not configured" in message:
-            category = "missing_database_url"
         else:
-            category = "unclassified_database_error"
-        logger.error("Database health check failed: exception_type=%s category=%s", type(exc).__name__, category)
+            category = "postgres_handshake_or_configuration"
+        logger.error("Database PostgreSQL probe failed: exception_type=%s category=%s",
+                     type(exc).__name__, category)
         raise HTTPException(
             status_code=503,
-            detail={"database": "disconnected", "diagnostic": category, "exception_type": type(exc).__name__}
+            detail={"database": "disconnected", "dns": "ok", "tcp": "ok",
+                    "diagnostic": category, "exception_type": type(exc).__name__}
         )
-
 
 @app.get("/agents")
 def agents():
