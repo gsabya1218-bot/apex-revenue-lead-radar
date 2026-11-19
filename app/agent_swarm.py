@@ -65,7 +65,9 @@ def run():
     cur.execute("""SELECT id,company_name,country,sector,commercial_trigger,evidence_summary,evidence_url,evidence_date,source_name,website FROM leads WHERE evidence_summary ILIKE 'DISCOVERY CANDIDATE%%' AND NOT EXISTS(SELECT 1 FROM agent_tasks t WHERE t.lead_id=leads.id AND t.agent_key='quality_auditor' AND t.status='completed') ORDER BY evidence_date DESC NULLS LAST LIMIT %s""",(int(os.getenv("SWARM_MAX_CANDIDATES","5")),))
     leads=cur.fetchall();counts={"processed":0,"P1_review_only":0,"P2":0,"P3":0,"DISQUALIFY":0,"errors":0}
     for lead in leads:
-     context={"candidate":dict(lead),"research_sources":web_search('"'+lead["company_name"]+'" data gaps market intelligence pricing customer supplier revenue margin')}
+     region_mode = "USA_IMMEDIATE" if (lead.get("country") or "").lower() in ("united states","usa","us") else "EU_REQUIREMENT_LED"
+     query_suffix = "urgent external research data analytics consulting vendor RFP buying requirement" if region_mode == "USA_IMMEDIATE" else "tender procurement requirement market research data analytics consulting deadline"
+     context={"candidate":dict(lead),"regional_sales_mode":region_mode,"research_sources":web_search('"'+lead["company_name"]+'" '+query_suffix)}
      history=[]
      for i,(key,label,task) in enumerate(AGENTS):
       cur.execute("INSERT INTO agent_tasks(run_id,lead_id,agent_key,status,input_json,started_at) VALUES(%s,%s,%s,'running',%s,NOW()) RETURNING id",(rid,lead["id"],key,json.dumps({"prior_handoffs":len(history)})));tid=cur.fetchone()["id"]
