@@ -1,1 +1,13 @@
-render.yaml
+services:
+  - type: web
+    name: apex-revenue-lead-radar
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: API_KEY
+        generateValue: true
+      - key: APP_ENV
+        value: production
