@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("apex-radar")
 
-app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.3")
+app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.4")
 
 
 def db_connection():
@@ -50,7 +50,7 @@ class LeadInput(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.3"}
+    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.4"}
 
 
 @app.get("/health")
@@ -70,11 +70,22 @@ def db_health():
         try:
             parsed = urlparse(url)
             host = parsed.hostname
+        except ValueError as exc:
+            message = str(exc).lower()
+            category = "malformed_url_authority" if "bracket" in message or "ipv6" in message else "database_url_parse_failed"
+            logger.error("Database URL authority parsing failed: exception_type=%s category=%s",
+                         type(exc).__name__, category)
+            raise HTTPException(status_code=503, detail={
+                "database": "disconnected", "diagnostic": category,
+                "exception_type": type(exc).__name__
+            })
+
+        try:
             port = parsed.port or 5432
         except ValueError as exc:
-            logger.error("Database URL parsing failed: exception_type=%s", type(exc).__name__)
+            logger.error("Database URL port parsing failed: exception_type=%s", type(exc).__name__)
             raise HTTPException(status_code=503, detail={
-                "database": "disconnected", "diagnostic": "database_url_parse_failed",
+                "database": "disconnected", "diagnostic": "invalid_database_url_port",
                 "exception_type": type(exc).__name__
             })
 
