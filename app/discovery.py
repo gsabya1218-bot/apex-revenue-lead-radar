@@ -42,26 +42,26 @@ QUERY_THEMES = [
     '"manual data collection" OR "spreadsheet" data delays company decision',
     '"market data" unavailable OR unreliable launch expansion company',
 ]
-ACTION = re.compile(r"\\b(faces|facing|reports|reported|warns|warned|struggles|struggling|"
+ACTION = re.compile(r"\b(faces|facing|reports|reported|warns|warned|struggles|struggling|"
                     r"unable|cannot|can't|lacks|missing|delayed|delays|disrupted|"
                     r"disruption|shortfall|missed|fails|failure|failed|"
                     r"announces|announced|launches|launched|acquires|acquired|"
-                    r"expands|expanded|cuts|cut|restructures|restructuring)\\b", re.I)
-DATA_GAP = re.compile(r"\\b(data gap|data gaps|data quality|incomplete data|missing data|"
+                    r"expands|expanded|cuts|cut|restructures|restructuring)\b", re.I)
+DATA_GAP = re.compile(r"\b(data gap|data gaps|data quality|incomplete data|missing data|"
                       r"fragmented data|outdated data|stale data|unavailable data|"
                       r"historical data|market intelligence|competitive intelligence|"
                       r"customer data|pricing data|supplier visibility|manual data|"
-                      r"data access|data reliability|inaccurate data)\\b", re.I)
-BUSINESS_PAIN = re.compile(r"\\b(revenue|margin|profit|market share|customer churn|"
+                      r"data access|data reliability|inaccurate data)\b", re.I)
+BUSINESS_PAIN = re.compile(r"\b(revenue|margin|profit|market share|customer churn|"
                            r"lost sales|missed deals|acquisition|launch|expansion|"
                            r"supplier|supply chain|capacity|pricing|regulatory deadline|"
-                           r"competitive|customer demand|forecast)\\b", re.I)
+                           r"competitive|customer demand|forecast)\b", re.I)
 GENERIC = {"company","business","group","manufacturer","industry","market","report",
            "study","research","analysis","sector","supplier","startup","firm","the",
            "a","an","us","europe","european","american","global","new","major","leading"}
 
 def clean(s):
-    return re.sub(r"\\s+", " ", unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
+    return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
 
 def parse_date(value):
     try: return parsedate_to_datetime(value).date() if value else None
@@ -70,7 +70,7 @@ def parse_date(value):
 def extract_company(title):
     match = ACTION.search(title)
     if not match: return None
-    candidate = re.sub(r"^(breaking|exclusive|update)\\s*:?\\s*", "", title[:match.start()].strip(" -:|,.'\""), flags=re.I)
+    candidate = re.sub(r"^(breaking|exclusive|update)\s*:?\s*", "", title[:match.start()].strip(" -:|,.'\""), flags=re.I)
     words = candidate.split()
     if not 1 <= len(words) <= 6 or len(candidate) > 70: return None
     if any(w.lower().strip(".,:") in GENERIC for w in words[:2]): return None
