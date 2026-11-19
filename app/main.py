@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("apex-radar")
 
-app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.0")
+app = FastAPI(title="Apex Revenue Lead Radar", version="0.2.1")
 
 
 def db_connection():
@@ -48,7 +48,7 @@ class LeadInput(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.0"}
+    return {"status": "running", "service": "Apex Revenue Lead Radar", "version": "0.2.1"}
 
 
 @app.get("/health")
@@ -65,9 +65,27 @@ def db_health():
                     cur.execute("SELECT 1")
                     cur.fetchone()
         return {"database": "connected"}
-    except Exception:
-        logger.exception("Database health check failed")
-        raise HTTPException(status_code=503, detail="Database connection failed; check Render and Supabase settings")
+    except Exception as exc:
+        message = str(exc).lower()
+        if "could not translate host name" in message or "name or service not known" in message or "temporary failure in name resolution" in message:
+            category = "dns_or_pooler_hostname"
+        elif "timeout" in message or "timed out" in message or "network is unreachable" in message or "connection refused" in message:
+            category = "network_or_port"
+        elif "password authentication failed" in message or "authentication failed" in message or "tenant or user not found" in message:
+            category = "credentials_or_pooler_username"
+        elif "ssl" in message or "certificate" in message:
+            category = "ssl_configuration"
+        elif "does not exist" in message and "database" in message:
+            category = "database_name"
+        elif "database_url is not configured" in message:
+            category = "missing_database_url"
+        else:
+            category = "unclassified_database_error"
+        logger.error("Database health check failed: exception_type=%s category=%s", type(exc).__name__, category)
+        raise HTTPException(
+            status_code=503,
+            detail={"database": "disconnected", "diagnostic": category, "exception_type": type(exc).__name__}
+        )
 
 
 @app.get("/agents")
