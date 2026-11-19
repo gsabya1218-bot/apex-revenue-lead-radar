@@ -1,0 +1,202 @@
+{
+  "autonomy": "approval_required",
+  "geography": {
+    "include": [
+      "USA",
+      "Continental Europe",
+      "Ireland"
+    ],
+    "exclude": [
+      "United Kingdom",
+      "India"
+    ]
+  },
+  "qualification_rules": [
+    "Require a recent, attributable public signal and source URL.",
+    "Do not treat job postings, hiring, or generic data-partnership roles as buyer requirement evidence.",
+    "Do not invent company facts, contacts, budgets, or buying intent.",
+    "Route uncertain leads to human review."
+  ],
+  "agents": [
+    {
+      "id": "agent_01",
+      "name": "US Market Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_02",
+      "name": "Europe Market Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_03",
+      "name": "Ireland Market Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_04",
+      "name": "Consumer Behavior Shift Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_05",
+      "name": "Pricing and Mix Pressure Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_06",
+      "name": "Market Expansion Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_07",
+      "name": "New Product Adoption Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_08",
+      "name": "Channel Shift Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_09",
+      "name": "Competitive Threat Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_10",
+      "name": "Supply Chain Disruption Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_11",
+      "name": "Geopolitical Exposure Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_12",
+      "name": "Food and Beverage Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_13",
+      "name": "Consumer Goods Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_14",
+      "name": "Healthcare and Ingredients Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_15",
+      "name": "Industrial Markets Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_16",
+      "name": "Private Equity Portfolio Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_17",
+      "name": "M&A Activity Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_18",
+      "name": "Company Financial Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_19",
+      "name": "Executive Change Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_20",
+      "name": "Regulatory Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_21",
+      "name": "Retail and E-commerce Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_22",
+      "name": "Demand Trend Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_23",
+      "name": "Geographic Penetration Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_24",
+      "name": "Product Launch Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_25",
+      "name": "Customer Experience Signal Scout",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_26",
+      "name": "Evidence URL Validator",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_27",
+      "name": "Company Identity Resolver",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_28",
+      "name": "Duplicate Lead Detector",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_29",
+      "name": "Commercial Fit Scorer",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    },
+    {
+      "id": "agent_30",
+      "name": "Human Review Queue Manager",
+      "status": "configured_not_connected",
+      "requires_human_approval": true
+    }
+  ]
+}
