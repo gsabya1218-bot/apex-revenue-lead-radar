@@ -136,7 +136,7 @@ def main():
                            (company_name, country, commercial_trigger, evidence_summary,
                             evidence_url, evidence_date, source_name, fit_score, qualification_status)
                            VALUES (%s, %s, %s, %s, %s, %s, %s, NULL, 'research_required')""",
-                        (company, region, title[:1000], summary, url, parse_date(pub), source or "Google News RSS"),
+                        (company, "United States" if region == "USA" else None, title[:1000], summary, url, parse_date(pub), source or "Google News RSS"),
                     )
                     inserted += 1
     log.info(
