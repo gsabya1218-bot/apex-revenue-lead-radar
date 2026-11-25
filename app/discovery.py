@@ -122,7 +122,7 @@ def fetch_linkedin(region, gl, ceid, query, signal_type):
 def extract_linkedin_company(title, description):
     text = f"{title} {description}"
     patterns = [
-        r"\\b(?:at|with|for)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,65})",
+        r"\b(?:at|with|for)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,65})",
         r"\\bcompany\\s*[:=-]\\s*([A-Z][A-Za-z0-9&.,'() -]{2,65})",
         r"\\b(?:we are|we're)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,55})",
     ]
@@ -135,7 +135,8 @@ def extract_linkedin_company(title, description):
                 return candidate
     return None
 
-\ndef main():
+
+def main():
     dsn=os.getenv("DATABASE_URL")
     if not dsn:
         log.error("DATABASE_URL missing; no records written"); return 2
