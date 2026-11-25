@@ -34,7 +34,7 @@ jobs:
             echo "Outside Dec 1–5 campaign window; scheduled collection skipped."
           fi
       - name: Install database driver
-        if: steps.window.outputs.active == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.window.outputs.active == 'true'
         run: python -m pip install --disable-pip-version-check psycopg2-binary
       - name: Discover public LinkedIn signals
         if: steps.window.outputs.active == 'true' || github.event_name == 'workflow_dispatch'
