@@ -51,11 +51,11 @@ DATA_GAP = re.compile(r"\b(data gap|data gaps|data quality|incomplete data|missi
                       r"fragmented data|outdated data|stale data|unavailable data|"
                       r"historical data|market intelligence|competitive intelligence|"
                       r"customer data|pricing data|supplier visibility|manual data|"
-                      r"data access|data reliability|inaccurate data)\b", re.I)
+                      r"data access|data reliability|inaccurate data|CAGR|market sizing|consumer insights|market data|external data|competitive benchmarking|research brief|consultant required|consulting project|market research)\b", re.I)
 BUSINESS_PAIN = re.compile(r"\b(revenue|margin|profit|market share|customer churn|"
                            r"lost sales|missed deals|acquisition|launch|expansion|"
                            r"supplier|supply chain|capacity|pricing|regulatory deadline|"
-                           r"competitive|customer demand|forecast)\b", re.I)
+                           r"competitive|customer demand|forecast|market entry|product launch|category growth|pricing pressure|portfolio strategy|new geography|commercial deadline|project timeline)\b", re.I)
 GENERIC = {"company","business","group","manufacturer","industry","market","report",
            "study","research","analysis","sector","supplier","startup","firm","the",
            "a","an","us","europe","european","american","global","new","major","leading"}
@@ -122,15 +122,15 @@ def fetch_linkedin(region, gl, ceid, query, signal_type):
 def extract_linkedin_company(title, description):
     text = f"{title} {description}"
     patterns = [
-        r"\b(?:at|with|for)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,65})",
-        r"\\bcompany\\s*[:=-]\\s*([A-Z][A-Za-z0-9&.,'() -]{2,65})",
-        r"\\b(?:we are|we're)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,55})",
+        r"\b(?:at|with|for)\s+([A-Z][A-Za-z0-9&.,'() -]{2,65})",
+        r"\bcompany\s*[:=-]\s*([A-Z][A-Za-z0-9&.,'() -]{2,65})",
+        r"\b(?:we are|we're)\s+([A-Z][A-Za-z0-9&.,'() -]{2,55})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             candidate = match.group(1).strip(" .,:;|-")
-            candidate = re.split(r"\\b(?:is|are|seeking|looking|hiring|needs|requires|for)\\b", candidate, maxsplit=1, flags=re.I)[0].strip()
+            candidate = re.split(r"\b(?:is|are|seeking|looking|hiring|needs|requires|for)\b", candidate, maxsplit=1, flags=re.I)[0].strip()
             if 2 <= len(candidate) <= 65 and len(candidate.split()) <= 7:
                 return candidate
     return None
