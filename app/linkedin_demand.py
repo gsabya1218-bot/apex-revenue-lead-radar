@@ -67,6 +67,8 @@ def company_from(title, content):
 def main():
     dsn = os.getenv("DATABASE_URL")
     if not dsn: raise RuntimeError("DATABASE_URL is not configured")
+    if not os.getenv("TAVILY_API_KEY"):
+        raise RuntimeError("TAVILY_API_KEY is missing; refusing to report an empty scan as successful")
     now = datetime.now(timezone.utc)
     hits = {}
     for country, region in REGIONS:
