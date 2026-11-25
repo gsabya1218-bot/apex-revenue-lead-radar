@@ -139,46 +139,77 @@ def extract_linkedin_company(title, description):
 def main():
     dsn=os.getenv("DATABASE_URL")
     if not dsn:
-        log.error("DATABASE_URL missing; no records written"); return 2
+        log.error("DATABASE_URL missing; no records written")
+        return 2
     found={}
     for region,gl,ceid in REGIONS:
         for query in QUERY_THEMES:
             try:
                 for row in fetch(region,gl,ceid,query): found[row[1]]=row
             except Exception as exc:
-                log.warning("Feed failed region=%s error_type=%s",region,type(exc).__name__)
-            time.sleep(0.25)
-        log.info("Completed targeted discovery region=%s",region)
+                log.warning("News feed failed region=%s error_type=%s",region,type(exc).__name__)
+            time.sleep(0.15)
+        for query,signal_type in LINKEDIN_THEMES:
+            try:
+                for row in fetch_linkedin(region,gl,ceid,query,signal_type): found[row[1]]=row
+            except Exception as exc:
+                log.warning("LinkedIn public-index search failed region=%s type=%s error_type=%s",region,signal_type,type(exc).__name__)
+            time.sleep(0.15)
+        log.info("Completed public discovery region=%s",region)
 
     inserted=0; rejected=0; duplicates=0; weak=0
+    exported=[]
     with closing(psycopg2.connect(dsn,sslmode="require",connect_timeout=15)) as conn:
         with conn:
             with conn.cursor() as cur:
-                for title,url,desc,pub,source,country in found.values():
-                    company=extract_company(title)
+                for row in found.values():
+                    title,url,desc,pub,source,country,*meta=row
+                    signal_type=meta[0] if meta else "external_trigger"
+                    company=extract_company(title) or extract_linkedin_company(title,desc)
                     body=f"{title}. {desc}"
-                    # Require data-gap evidence AND a material business consequence.
-                    # This is a candidate filter, not proof of an actual purchase requirement.
-                    if not company or not DATA_GAP.search(body) or not BUSINESS_PAIN.search(body):
-                        rejected += 1; continue
+                    has_data_intent=bool(DATA_GAP.search(body))
+                    has_business_pain=bool(BUSINESS_PAIN.search(body))
+                    explicit_project=signal_type=="linkedin_project" and has_data_intent
+                    relevant_role=signal_type=="linkedin_role" and has_data_intent and has_business_pain
+                    if not company or not ((has_data_intent and has_business_pain) or explicit_project or relevant_role):
+                        rejected += 1
+                        continue
                     dt=parse_date(pub)
                     if not dt or (datetime.now(timezone.utc).date()-dt).days > 7:
-                        weak += 1; continue
+                        weak += 1
+                        continue
                     cur.execute("SELECT 1 FROM leads WHERE evidence_url=%s LIMIT 1",(url,))
-                    if cur.fetchone(): duplicates+=1; continue
+                    if cur.fetchone():
+                        duplicates += 1
+                        continue
+                    deadline_match=re.search(r"(?:by|before|deadline|due|closing date|submit by)\\s+([^.;,]{3,50})",body,re.I)
+                    decision_deadline=deadline_match.group(1).strip() if deadline_match else "Not stated publicly — confirm with buyer"
                     summary=("DISCOVERY CANDIDATE — NOT YET QUALIFIED. "
-                             "Data-gap phrase and business-impact phrase detected in public news text. "
-                             "Verify primary source, actual internal-team limitation, executive owner, "
-                             "deadline, external-data need, and Apex fit before P1/P2 classification. "
-                             f"Headline: {title}. Source description: {desc}")[:2000]
+                             f"Signal class: {signal_type}. Specific public fact: {title}. "
+                             f"Decision/deadline: {decision_deadline}. "
+                             "Unknown: actual external-data coverage, country/category/customer granularity, "
+                             "budget, and accountable decision owner. Verify original post, buyer and timeline "
+                             "before assigning P1/P2 or sending an offer. "
+                             f"Source detail: {desc}")[:2000]
                     cur.execute("""INSERT INTO leads
                         (company_name,country,commercial_trigger,evidence_summary,evidence_url,
                          evidence_date,source_name,fit_score)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,NULL)""",
-                        (company,country,title[:1000],summary,url,dt,source or "Google News RSS"))
+                        (company,country,title[:1000],summary,url,dt,source or "Public web search"))
                     inserted+=1
-    log.info("Discovery complete: raw_items=%d inserted_candidates=%d rejected_weak_match=%d "
-             "stale_or_undated=%d duplicates=%d. Candidate records are NOT qualified leads.",
+                    exported.append({"company":company,"country":country,"signal_class":signal_type,
+                        "fact":title,"deadline":decision_deadline,"unknown_gap":"External data coverage, granularity, budget and accountable owner are not yet verified.",
+                        "source_url":url,"source_date":dt.isoformat(),"qualification":"Candidate only — not a confirmed buyer"})
+    os.makedirs("output",exist_ok=True)
+    import json, csv
+    with open("output/discovery_candidates.json","w",encoding="utf-8") as f:
+        json.dump({"generated_at":datetime.now(timezone.utc).isoformat(),"rolling_window_days":7,
+                   "candidates":exported,"raw_results":len(found),"inserted":inserted,
+                   "rejected":rejected,"undated_or_stale":weak,"duplicates":duplicates},f,indent=2)
+    with open("output/discovery_candidates.csv","w",newline="",encoding="utf-8") as f:
+        fields=["company","country","signal_class","fact","deadline","unknown_gap","source_url","source_date","qualification"]
+        writer=csv.DictWriter(f,fieldnames=fields); writer.writeheader(); writer.writerows(exported)
+    log.info("Discovery complete: raw_items=%d inserted_candidates=%d rejected_weak_match=%d stale_or_undated=%d duplicates=%d",
              len(found),inserted,rejected,weak,duplicates)
     return 0
 
