@@ -98,6 +98,8 @@ LINKEDIN_THEMES = [
     ('site:linkedin.com/posts ("RFP" OR "vendor search" OR "agency search") ("market research" OR "consumer insights" OR "CAGR" OR "external data")', "linkedin_project"),
     ('site:linkedin.com/jobs ("Head of Insights" OR "Director Consumer Insights" OR "Market Intelligence Lead" OR "Head of Data") ("CAGR" OR "market data" OR "consumer" OR "market research")', "linkedin_role"),
     ('site:linkedin.com/jobs ("Market Research" OR "Consumer Insights" OR "Data Analytics" OR "Competitive Intelligence") ("market sizing" OR "external data" OR "CAGR" OR "pricing data")', "linkedin_role"),
+    ('site:linkedin.com/in ("Head of Insights" OR "Head of Data" OR "Market Intelligence Lead" OR "Consumer Insights Director") ("looking for" OR seeking OR "market data" OR CAGR OR "consumer data")', "linkedin_profile_intent"),
+    ('site:linkedin.com/in ("Insights Lead" OR "Market Research Director" OR "Data Strategy") ("external data" OR "market sizing" OR "consumer research" OR "competitive intelligence")', "linkedin_profile_intent"),
 ]
 
 def fetch_linkedin(region, gl, ceid, query, signal_type):
@@ -183,7 +185,8 @@ def main():
             has_business_pain=bool(BUSINESS_PAIN.search(body))
             explicit_project=signal_type=="linkedin_project" and has_data_intent
             relevant_role=signal_type=="linkedin_role" and has_data_intent and has_business_pain
-            if not company or not ((has_data_intent and has_business_pain) or explicit_project or relevant_role):
+            relevant_profile=signal_type=="linkedin_profile_intent" and has_data_intent and has_business_pain
+            if not company or not ((has_data_intent and has_business_pain) or explicit_project or relevant_role or relevant_profile):
                 rejected += 1
                 continue
             dt=parse_date(pub)
