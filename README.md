@@ -10,7 +10,7 @@ Apex Metrics' public-web commercial intelligence discovery service. The existing
 - Recency: strict rolling seven-day evidence window.
 
 ## Evidence and qualification
-The discovery script only creates candidates. A public post or job vacancy is not proof of a buyer or budget. Before any candidate is promoted to P1/P2, validate:
+The discovery script uses Tavily Search when the GitHub Actions secret `TAVILY_API_KEY` is configured. It searches public LinkedIn-indexed project posts and role listings plus broader public web evidence, with a seven-day time range. Google News and Bing RSS discovery remain as fallback/parallel public-index sources. The API key is read only from the process environment and is never written to candidate output or logs. If the secret is absent, the job falls back to RSS-only discovery and records that provider status in the JSON output.\n\nThe discovery script only creates candidates. A public post or job vacancy is not proof of a buyer or budget. Before any candidate is promoted to P1/P2, validate:
 1. A specific, dated, checkable fact and original source URL.
 2. The actual decision and deadline owned by the relevant executive.
 3. One external-data blind spot Apex can investigate.

@@ -36,6 +36,7 @@ jobs:
         if: steps.window.outputs.run_scan == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: python app/discovery.py
       - name: Upload candidate CSV and evidence JSON
         if: always() && steps.window.outputs.run_scan == 'true'

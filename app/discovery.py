@@ -3,7 +3,7 @@
 This script only discovers candidates. It does not claim a buyer requirement:
 public evidence must be reviewed against RESEARCH_STANDARD.md before P1/P2 status.
 """
-import os, re, sys, time, logging, urllib.parse, urllib.request
+import os, re, sys, time, json, logging, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from html import unescape
@@ -64,8 +64,11 @@ def clean(s):
     return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
 
 def parse_date(value):
-    try: return parsedate_to_datetime(value).date() if value else None
-    except Exception: return None
+    if not value: return None
+    try: return parsedate_to_datetime(value).date()
+    except Exception:
+        try: return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+        except Exception: return None
 
 def extract_company(title):
     match = ACTION.search(title)
@@ -154,6 +157,54 @@ def extract_linkedin_company(title, description):
     return None
 
 
+def fetch_tavily(query, region, signal_type, linkedin_only=False):
+    """Use Tavily Search API with the secret supplied through TAVILY_API_KEY."""
+    api_key = os.getenv("TAVILY_API_KEY", "").strip()
+    if not api_key:
+        return []
+    payload = {
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "basic",
+        "topic": "general",
+        "time_range": "week",
+        "max_results": 8,
+        "include_answer": False,
+        "include_raw_content": False
+    }
+    if linkedin_only:
+        payload["include_domains"] = ["linkedin.com"]
+    req = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=35) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    rows = []
+    for item in data.get("results", []):
+        title = clean(item.get("title", ""))
+        url = (item.get("url") or "").strip()
+        desc = clean(item.get("content", ""))
+        published = item.get("published_date") or ""
+        if not title or not url:
+            continue
+        if linkedin_only and "linkedin.com" not in url.lower():
+            continue
+        rows.append((title, url, desc, published,
+                     "Tavily Search — LinkedIn public index" if linkedin_only else "Tavily Search",
+                     region, signal_type))
+    return rows
+
+def tavily_queries(region):
+    return [
+        (f'LinkedIn public posts in {region}: companies or executives seeking consultants, agencies or project support for CAGR, market sizing, consumer insights, market research, market data, syndicated data or competitive intelligence. Posted in the last 7 days.', "linkedin_project", True),
+        (f'LinkedIn public job posts in {region}: Head or Director of Data, Insights, Consumer Insights, Market Intelligence, Market Research or Analytics; job description requires external market data, consumer data, CAGR, market sizing, pricing intelligence or competitor research. Last 7 days.', "linkedin_role", True),
+        (f'In {region}, recent companies with a specific commercial decision or deadline involving market entry, product launch, category growth, pricing, market share or customer demand and a stated need for external market data, consumer insights, CAGR, market sizing or competitive intelligence. Last 7 days.', "market_data_intent", False),
+    ]
+
+
 def main():
     dsn=os.getenv("DATABASE_URL")
     found={}
@@ -170,6 +221,13 @@ def main():
             except Exception as exc:
                 log.warning("LinkedIn public-index search failed region=%s type=%s error_type=%s",region,signal_type,type(exc).__name__)
             time.sleep(0.15)
+        if os.getenv("TAVILY_API_KEY"):
+            for query,signal_type,linkedin_only in tavily_queries(region):
+                try:
+                    for row in fetch_tavily(query,region,signal_type,linkedin_only): found[row[1]]=row
+                except Exception as exc:
+                    log.warning("Tavily search failed region=%s type=%s error_type=%s",region,signal_type,type(exc).__name__)
+                time.sleep(0.15)
         log.info("Completed public discovery region=%s",region)
 
     inserted=0; rejected=0; duplicates=0; weak=0; exported=[]
@@ -227,6 +285,7 @@ def main():
     import json, csv
     with open("output/discovery_candidates.json","w",encoding="utf-8") as f:
         json.dump({"generated_at":datetime.now(timezone.utc).isoformat(),"rolling_window_days":7,
+                   "search_provider":"Tavily + public RSS" if os.getenv("TAVILY_API_KEY") else "public RSS only (TAVILY_API_KEY missing)",
                    "candidates":exported,"raw_results":len(found),"database_writes":inserted,
                    "rejected":rejected,"undated_or_stale":weak,"duplicates":duplicates,
                    "database_mode":"postgres" if dsn else "artifact_only"},f,indent=2)
