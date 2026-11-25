@@ -1,0 +1,47 @@
+name: Apex 7-Day LinkedIn and Insights Lead Radar
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 2 * * *" # 08:00 India time
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restrict scheduled runs to December 1–5
+        id: window
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "run_scan=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$(date -u +%m)" == "12" && "$(date -u +%d)" -ge "01" && "$(date -u +%d)" -le "05" ]]; then
+            echo "run_scan=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_scan=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.window.outputs.run_scan == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.window.outputs.run_scan == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install existing project dependencies
+        if: steps.window.outputs.run_scan == 'true'
+        run: pip install -r requirements.txt
+      - name: Validate Python syntax
+        if: steps.window.outputs.run_scan == 'true'
+        run: python -m py_compile app/main.py app/discovery.py
+      - name: Run the rolling seven-day discovery
+        if: steps.window.outputs.run_scan == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python app/discovery.py
+      - name: Upload candidate CSV and evidence JSON
+        if: always() && steps.window.outputs.run_scan == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-dec-closure-leads-${{ github.run_number }}
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14
