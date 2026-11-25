@@ -3,7 +3,7 @@ name: Apex LinkedIn Buyer Signal Radar
 on:
   workflow_dispatch:
   schedule:
-    # Daily at 08:00 IST. The job is date-gated to the Dec 1–5 closure window.
+    # Daily at 08:00 IST. Research Nov 25–30; closure preparation Dec 1–5.
     - cron: "30 2 * * *"
 
 permissions:
@@ -22,16 +22,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Check campaign window
+      - name: Check discovery window
         id: window
         shell: bash
         run: |
           TODAY=$(date -u +%Y%m%d)
-          if [[ "${TODAY}" -ge "20261201" && "${TODAY}" -le "20261205" ]]; then
+          if [[ "${TODAY}" -ge "20261125" && "${TODAY}" -le "20261205" ]]; then
             echo "active=true" >> "$GITHUB_OUTPUT"
+            if [[ "${TODAY}" -ge "20261201" ]]; then
+              echo "phase=closure" >> "$GITHUB_OUTPUT"
+            else
+              echo "phase=research" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "active=false" >> "$GITHUB_OUTPUT"
-            echo "Outside Dec 1–5 campaign window; scheduled collection skipped."
+            echo "Outside Nov 25–Dec 5 research and closure window; skipped."
           fi
       - name: Install database driver
         if: steps.window.outputs.active == 'true'
@@ -46,6 +51,7 @@ jobs:
           LINKEDIN_WINDOW_DAYS: "7"
           CAMPAIGN_START: "2026-12-01"
           CAMPAIGN_END: "2026-12-05"
+          DISCOVERY_PHASE: ${{ steps.window.outputs.phase }}
         run: python -m app.linkedin_signals
       - name: Upload candidate export
         if: always() && steps.window.outputs.active == 'true'
