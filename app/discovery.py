@@ -115,7 +115,8 @@ def fetch_linkedin(region, gl, ceid, query, signal_type):
         desc = clean(item.findtext("description"))
         pub = item.findtext("pubDate") or ""
         src = item.find("source")
-        if title and link and "linkedin.com" in link.lower():
+        source_url = (src.attrib.get("url", "") if src is not None else "").lower()
+        if title and link and ("linkedin.com" in link.lower() or "linkedin.com" in source_url):
             rows.append((title, link, desc, pub, "Publicly indexed LinkedIn", region, signal_type))
     return rows
 
