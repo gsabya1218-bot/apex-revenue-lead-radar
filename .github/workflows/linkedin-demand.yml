@@ -1,19 +1,8 @@
-name: Apex LinkedIn Demand Signals
-
+name: Apex LinkedIn Demand Signals (Manual Legacy)
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "45 2 * * *" # 08:15 IST daily
   workflow_dispatch:
-
 permissions:
   contents: read
-
-concurrency:
-  group: apex-linkedin-demand
-  cancel-in-progress: false
-
 jobs:
   discover-public-signals:
     runs-on: ubuntu-latest
@@ -23,10 +12,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check psycopg2-binary
-      - name: Discover public LinkedIn demand signals
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-        run: python -m app.linkedin_demand
+      - name: Explain manual legacy runner
+        run: |
+          echo "This legacy Tavily runner is manual-only because TAVILY_API_KEY is not configured."
+          echo "Use Apex LinkedIn Buyer Signal Radar for scheduled 7-day discovery."
