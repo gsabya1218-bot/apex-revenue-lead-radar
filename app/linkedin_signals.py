@@ -37,16 +37,13 @@ REGIONS = [
     ("Finland", "FI"), ("Austria", "AT"), ("Portugal", "PT"),
 ]
 
-# Six queries per territory = 90 search requests per run.
+# Two Tavily queries per territory = 30 basic searches per daily run.
+# Basic depth keeps the 7-day monitoring cadence lean on API credits.
 PROJECT_QUERIES = [
-    'site:linkedin.com/posts ("looking for" OR "seeking") ("market research" OR "consumer insights" OR "market intelligence" OR "CAGR") (consultant OR consulting OR project)',
-    'site:linkedin.com/posts ("project brief" OR "consulting project" OR "independent consultant") ("external data" OR "market data" OR "consumer research" OR "competitive intelligence")',
-    'site:linkedin.com/posts ("Head of Insights" OR "Consumer Insights Director" OR "Market Intelligence Lead" OR "Head of Data") ("looking for" OR "seeking" OR "need" OR "data provider") ("CAGR" OR "market data" OR "consumer panel" OR "syndicated data")',
+    'site:linkedin.com/posts ("looking for" OR "seeking" OR "project brief" OR "consulting project") ("market research" OR "consumer insights" OR "market intelligence" OR CAGR OR "external data" OR "market data" OR "competitive intelligence")',
 ]
 HIRING_QUERIES = [
-    'site:linkedin.com/jobs/view ("Head of Insights" OR "Director Consumer Insights" OR "Market Intelligence" OR "Head of Data Analytics")',
-    'site:linkedin.com/jobs/view ("CAGR" OR "syndicated data" OR "market data" OR "consumer panel" OR "external data") (insights OR analytics OR strategy)',
-    'site:linkedin.com/jobs/view ("competitive intelligence" OR "market research" OR "consumer data" OR "category insights" OR "external data providers") (director OR head OR lead OR manager)',
+    'site:linkedin.com/jobs/view ("Head of Insights" OR "Consumer Insights Director" OR "Market Intelligence" OR "Head of Data" OR "Data Analytics") ("CAGR" OR "market data" OR "consumer panel" OR "syndicated data" OR "external data" OR "competitive intelligence")',
 ]
 
 PROJECT_TERMS = re.compile(
@@ -80,39 +77,37 @@ def http_json(url: str, headers: dict[str, str], body: dict | None = None) -> di
     with urllib.request.urlopen(req, timeout=30) as response:
         return json.loads(response.read().decode("utf-8", "replace"))
 
-def search_serper(query: str) -> list[dict]:
-    key = os.getenv("SERPER_API_KEY")
+def search_tavily(query: str) -> list[dict]:
+    key = os.getenv("TAVILY_API_KEY")
     if not key:
-        return []
+        raise RuntimeError("TAVILY_API_KEY is not configured in GitHub Actions secrets")
     result = http_json(
-        "https://google.serper.dev/search",
-        {"X-API-KEY": key, "Content-Type": "application/json"},
-        {"q": query, "num": 10, "tbs": "qdr:w"})
-    return result.get("organic", [])
-
-def search_google_cse(query: str) -> list[dict]:
-    key, cx = os.getenv("GOOGLE_CSE_API_KEY"), os.getenv("GOOGLE_CSE_ID")
-    if not (key and cx):
-        return []
-    params = urllib.parse.urlencode({
-        "key": key, "cx": cx, "q": query, "dateRestrict": "d7", "num": 10})
-    result = http_json("https://www.googleapis.com/customsearch/v1?" + params,
-                       {"User-Agent": "ApexMetricsPublicResearch/1.0"})
+        "https://api.tavily.com/search",
+        {"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        {
+            "query": query,
+            "topic": "general",
+            "search_depth": "basic",
+            "time_range": "week",
+            "max_results": 10,
+            "include_domains": ["linkedin.com"],
+            "include_answer": False,
+            "include_raw_content": False,
+        },
+    )
     rows = []
-    for item in result.get("items", []):
-        meta = item.get("pagemap", {}).get("metatags", [{}])[0]
+    for item in result.get("results", []):
         rows.append({
-            "title": item.get("title", ""), "link": item.get("link", ""),
-            "snippet": item.get("snippet", ""),
-            "date": meta.get("article:published_time") or meta.get("date") or ""})
+            "title": item.get("title", ""),
+            "link": item.get("url", ""),
+            "snippet": item.get("content", ""),
+            "date": item.get("published_date", ""),
+            "score": item.get("score"),
+        })
     return rows
 
 def search(query: str) -> list[dict]:
-    if os.getenv("SERPER_API_KEY"):
-        return search_serper(query)
-    if os.getenv("GOOGLE_CSE_API_KEY") and os.getenv("GOOGLE_CSE_ID"):
-        return search_google_cse(query)
-    return []
+    return search_tavily(query)
 
 def parse_date(value: str) -> date | None:
     if not value:
@@ -180,10 +175,8 @@ def build_queries() -> list[tuple[str, str]]:
     return queries
 
 def collect() -> list[dict[str, Any]]:
-    if not (os.getenv("SERPER_API_KEY") or
-            (os.getenv("GOOGLE_CSE_API_KEY") and os.getenv("GOOGLE_CSE_ID"))):
-        LOG.error("No search provider configured. Set SERPER_API_KEY or GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID.")
-        return []
+    if not os.getenv("TAVILY_API_KEY"):
+        raise RuntimeError("TAVILY_API_KEY is missing. Add it as a GitHub Actions repository secret.")
     found: dict[str, dict] = {}
     for country, query in build_queries():
         try:
@@ -241,7 +234,7 @@ def collect() -> list[dict[str, Any]]:
                         "deadline, buyer, data gap, spend route and Apex fit before outreach."),
                 }
         except Exception as exc:
-            LOG.warning("Search failed country=%s error=%s", country, type(exc).__name__)
+            LOG.warning("Tavily search failed country=%s error=%s", country, type(exc).__name__)
         time.sleep(0.15)
     return sorted(found.values(),
                   key=lambda x: (x["signal_score"], x["published_date"]), reverse=True)
