@@ -1,0 +1,28 @@
+name: LinkedIn Signal Radar CI
+
+on:
+  push:
+    paths:
+      - "app/linkedin_signals.py"
+      - "tests/**"
+      - ".github/workflows/linkedin-signal-ci.yml"
+  pull_request:
+    paths:
+      - "app/linkedin_signals.py"
+      - "tests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test-linkedin-radar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile collector
+        run: python -m py_compile app/linkedin_signals.py
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
