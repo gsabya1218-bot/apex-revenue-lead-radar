@@ -1,6 +1,8 @@
 name: Apex LinkedIn Demand Signals
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "45 2 * * *" # 08:15 IST daily
   workflow_dispatch:
