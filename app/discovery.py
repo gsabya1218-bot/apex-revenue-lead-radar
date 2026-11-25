@@ -45,7 +45,7 @@ QUERY_THEMES = [
 ACTION = re.compile(r"\b(faces|facing|reports|reported|warns|warned|struggles|struggling|"
                     r"unable|cannot|can't|lacks|missing|delayed|delays|disrupted|"
                     r"disruption|shortfall|missed|fails|failure|failed|"
-                    r"announces|announced|launches|launched|acquires|acquired|"
+                    r"announces|announced|launches|launched|acquires|acquired|seeking|looking|hiring|requires|requiring|needs|searching|"
                     r"expands|expanded|cuts|cut|restructures|restructuring)\b", re.I)
 DATA_GAP = re.compile(r"\b(data gap|data gaps|data quality|incomplete data|missing data|"
                       r"fragmented data|outdated data|stale data|unavailable data|"
@@ -91,7 +91,51 @@ def fetch(region, gl, ceid, query):
         if title and link: rows.append((title,link,desc,pub,clean(src.text if src is not None else "Google News"),region))
     return rows
 
-def main():
+
+LINKEDIN_THEMES = [
+    ('site:linkedin.com/posts ("seeking" OR "looking for" OR "need a consultant" OR "consultant required") ("market research" OR "consumer insights" OR "CAGR" OR "market sizing" OR "market data")', "linkedin_project"),
+    ('site:linkedin.com/posts ("consulting project" OR "project brief" OR "scope of work" OR "freelance research") ("consumer" OR "market intelligence" OR "competitive intelligence" OR analytics)', "linkedin_project"),
+    ('site:linkedin.com/posts ("RFP" OR "vendor search" OR "agency search") ("market research" OR "consumer insights" OR "CAGR" OR "external data")', "linkedin_project"),
+    ('site:linkedin.com/jobs ("Head of Insights" OR "Director Consumer Insights" OR "Market Intelligence Lead" OR "Head of Data") ("CAGR" OR "market data" OR "consumer" OR "market research")', "linkedin_role"),
+    ('site:linkedin.com/jobs ("Market Research" OR "Consumer Insights" OR "Data Analytics" OR "Competitive Intelligence") ("market sizing" OR "external data" OR "CAGR" OR "pricing data")', "linkedin_role"),
+]
+
+def fetch_linkedin(region, gl, ceid, query, signal_type):
+    """Search-engine discovery of publicly indexed LinkedIn pages only; no login or private data."""
+    params = {"q": f"({query}) when:7d -UK -'United Kingdom' -India",
+              "hl": "en-US", "gl": gl, "ceid": ceid}
+    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": "ApexMetricsRevenueRadar/2.1"})
+    with urllib.request.urlopen(req, timeout=25) as response:
+        root = ET.fromstring(response.read())
+    rows = []
+    for item in root.findall("./channel/item"):
+        title = clean(item.findtext("title"))
+        link = (item.findtext("link") or "").strip()
+        desc = clean(item.findtext("description"))
+        pub = item.findtext("pubDate") or ""
+        src = item.find("source")
+        if title and link and "linkedin.com" in link.lower():
+            rows.append((title, link, desc, pub, "Publicly indexed LinkedIn", region, signal_type))
+    return rows
+
+def extract_linkedin_company(title, description):
+    text = f"{title} {description}"
+    patterns = [
+        r"\\b(?:at|with|for)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,65})",
+        r"\\bcompany\\s*[:=-]\\s*([A-Z][A-Za-z0-9&.,'() -]{2,65})",
+        r"\\b(?:we are|we're)\\s+([A-Z][A-Za-z0-9&.,'() -]{2,55})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            candidate = match.group(1).strip(" .,:;|-")
+            candidate = re.split(r"\\b(?:is|are|seeking|looking|hiring|needs|requires|for)\\b", candidate, maxsplit=1, flags=re.I)[0].strip()
+            if 2 <= len(candidate) <= 65 and len(candidate.split()) <= 7:
+                return candidate
+    return None
+
+\ndef main():
     dsn=os.getenv("DATABASE_URL")
     if not dsn:
         log.error("DATABASE_URL missing; no records written"); return 2
