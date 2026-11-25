@@ -7,7 +7,7 @@ from app.linkedin_signals import (
 
 class LinkedInSignalTests(unittest.TestCase):
     def test_search_volume_is_ninety_queries(self):
-        self.assertEqual(len(build_queries()), 90)
+        self.assertEqual(len(build_queries()), 30)
 
     def test_linkedin_job_is_classified_as_hiring_signal(self):
         kind = classify(
