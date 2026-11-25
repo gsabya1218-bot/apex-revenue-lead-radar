@@ -41,11 +41,14 @@ PROJECT_QUERIES = [
     'site:linkedin.com/posts ("looking for" OR "seeking") ("market research" OR "consumer insights" OR "market intelligence" OR "CAGR") (consultant OR consulting OR project)',
     'site:linkedin.com/posts ("project brief" OR "consulting project" OR "independent consultant") ("data" OR "insights" OR "market sizing" OR "competitive intelligence")',
     'site:linkedin.com/posts ("need support" OR "seeking support" OR "request for proposal") ("consumer research" OR "market data" OR "pricing" OR "market entry")',
+    'site:linkedin.com/posts ("Head of Insights" OR "Consumer Insights Director" OR "Market Intelligence Lead" OR "Head of Data") ("looking for" OR "seeking" OR "need") ("CAGR" OR "market data" OR "consumer panel" OR "syndicated data")',
+    'site:linkedin.com/posts ("data provider" OR "syndicated data" OR "consumer panel" OR "market data subscription") (seeking OR evaluation OR "looking for")',
 ]
 HIRING_QUERIES = [
     'site:linkedin.com/jobs/view ("Head of Insights" OR "Director Consumer Insights" OR "Market Intelligence" OR "Head of Data Analytics")',
     'site:linkedin.com/jobs/view ("CAGR" OR "syndicated data" OR "market data" OR "consumer panel" OR "external data") (insights OR analytics OR strategy)',
     'site:linkedin.com/jobs/view ("competitive intelligence" OR "market research" OR "consumer data" OR "category insights") (director OR head OR lead OR manager)',
+    'site:linkedin.com/jobs/view ("external data providers" OR "syndicated data" OR "consumer panel" OR "market data subscriptions" OR CAGR) (insights OR analytics OR strategy)',
 ]
 
 PROJECT_TERMS = re.compile(
