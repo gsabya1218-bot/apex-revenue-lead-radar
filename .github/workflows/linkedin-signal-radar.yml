@@ -51,6 +51,18 @@ jobs:
           CAMPAIGN_END: "2026-12-05"
           DISCOVERY_PHASE: ${{ steps.window.outputs.phase }}
         run: python -m app.linkedin_signals
+      - name: Run Tavily LinkedIn demand scanner
+        if: steps.window.outputs.active == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "$TAVILY_API_KEY" ]]; then
+            echo "::warning::TAVILY_API_KEY is not configured; Tavily demand scan skipped."
+          else
+            python -m app.linkedin_demand
+          fi
       - name: Upload candidate export
         if: always() && steps.window.outputs.active == 'true'
         uses: actions/upload-artifact@v4
