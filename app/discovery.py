@@ -101,14 +101,15 @@ LINKEDIN_THEMES = [
 ]
 
 def fetch_linkedin(region, gl, ceid, query, signal_type):
-    """Search-engine discovery of publicly indexed LinkedIn pages only; no login or private data."""
+    """Search two public RSS indexes for LinkedIn URLs; never access private/login-only content."""
+    rows = []
+    # Google News RSS index
     params = {"q": f"({query}) when:7d -UK -'United Kingdom' -India",
               "hl": "en-US", "gl": gl, "ceid": ceid}
-    url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": "ApexMetricsRevenueRadar/2.1"})
+    google_url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(google_url, headers={"User-Agent": "ApexMetricsRevenueRadar/2.2"})
     with urllib.request.urlopen(req, timeout=25) as response:
         root = ET.fromstring(response.read())
-    rows = []
     for item in root.findall("./channel/item"):
         title = clean(item.findtext("title"))
         link = (item.findtext("link") or "").strip()
@@ -117,8 +118,22 @@ def fetch_linkedin(region, gl, ceid, query, signal_type):
         src = item.find("source")
         source_url = (src.attrib.get("url", "") if src is not None else "").lower()
         if title and link and ("linkedin.com" in link.lower() or "linkedin.com" in source_url):
-            rows.append((title, link, desc, pub, "Publicly indexed LinkedIn", region, signal_type))
+            rows.append((title, link, desc, pub, "Publicly indexed LinkedIn — Google News", region, signal_type))
+    # Bing public RSS index; returned links are checked for LinkedIn host before inclusion.
+    bing_params = urllib.parse.urlencode({"q": f"({query})"})
+    bing_url = "https://www.bing.com/search?format=rss&" + bing_params
+    req = urllib.request.Request(bing_url, headers={"User-Agent": "ApexMetricsRevenueRadar/2.2"})
+    with urllib.request.urlopen(req, timeout=25) as response:
+        root = ET.fromstring(response.read())
+    for item in root.findall("./channel/item"):
+        title = clean(item.findtext("title"))
+        link = (item.findtext("link") or "").strip()
+        desc = clean(item.findtext("description"))
+        pub = item.findtext("pubDate") or ""
+        if title and link and "linkedin.com" in link.lower():
+            rows.append((title, link, desc, pub, "Publicly indexed LinkedIn — Bing", region, signal_type))
     return rows
+
 
 def extract_linkedin_company(title, description):
     text = f"{title} {description}"
