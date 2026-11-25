@@ -10,11 +10,13 @@ This is a discovery queue, not a buyer-intent oracle. Hiring alone is never clas
 ## Search access
 The collector searches public search-engine indexes for public LinkedIn URLs. It does not log into LinkedIn, scrape authenticated pages, bypass rate limits, or collect private profile data.
 
-Configure one search provider in GitHub Actions repository secrets:
-- `SERPER_API_KEY`; OR
-- `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_ID`.
+Configure `TAVILY_API_KEY` in GitHub Actions repository secrets. The collector uses the Tavily Search API directly with:
+- `time_range: week` and a separate strict seven-day date check;
+- `include_domains: ["linkedin.com"]`;
+- `search_depth: basic`, `max_results: 10`, and no raw-page extraction;
+- two focused searches per territory (one project-post query and one hiring/insights query), for 30 Tavily search requests per daily run.
 
-The code does not create or purchase these credentials. Check the provider's current pricing and quota before adding a key. No paid service should be enabled without Apex approval.
+Basic search is selected to keep credit use lean. Check the current Tavily plan, remaining credits and account quota before relying on daily collection. The workflow does not create or purchase credentials or upgrade the plan.
 
 LinkedIn's official APIs do not provide unrestricted search over all posts and jobs. Use approved LinkedIn API access or public indexed pages only. Search snippets may be incomplete and dates may be absent; undated items are discarded.
 
@@ -23,7 +25,7 @@ LinkedIn's official APIs do not provide unrestricted search over all posts and j
 - Territory: USA and continental Europe, including Ireland.
 - Excluded: UK and India.
 - December closure window: Dec 1–5, 2026.
-- Scheduled workflow: 08:00 IST daily, date-gated to Dec 1–5.
+- Scheduled workflow: 08:00 IST daily, date-gated to the configured research and closure window.
 - Manual workflow dispatch is available for testing, but does not authorize outreach.
 
 ## Signal treatment
