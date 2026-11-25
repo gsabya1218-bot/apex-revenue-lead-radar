@@ -138,9 +138,6 @@ def extract_linkedin_company(title, description):
 
 def main():
     dsn=os.getenv("DATABASE_URL")
-    if not dsn:
-        log.error("DATABASE_URL missing; no records written")
-        return 2
     found={}
     for region,gl,ceid in REGIONS:
         for query in QUERY_THEMES:
@@ -157,60 +154,68 @@ def main():
             time.sleep(0.15)
         log.info("Completed public discovery region=%s",region)
 
-    inserted=0; rejected=0; duplicates=0; weak=0
-    exported=[]
-    with closing(psycopg2.connect(dsn,sslmode="require",connect_timeout=15)) as conn:
-        with conn:
-            with conn.cursor() as cur:
-                for row in found.values():
-                    title,url,desc,pub,source,country,*meta=row
-                    signal_type=meta[0] if meta else "external_trigger"
-                    company=extract_company(title) or extract_linkedin_company(title,desc)
-                    body=f"{title}. {desc}"
-                    has_data_intent=bool(DATA_GAP.search(body))
-                    has_business_pain=bool(BUSINESS_PAIN.search(body))
-                    explicit_project=signal_type=="linkedin_project" and has_data_intent
-                    relevant_role=signal_type=="linkedin_role" and has_data_intent and has_business_pain
-                    if not company or not ((has_data_intent and has_business_pain) or explicit_project or relevant_role):
-                        rejected += 1
-                        continue
-                    dt=parse_date(pub)
-                    if not dt or (datetime.now(timezone.utc).date()-dt).days > 7:
-                        weak += 1
-                        continue
-                    cur.execute("SELECT 1 FROM leads WHERE evidence_url=%s LIMIT 1",(url,))
-                    if cur.fetchone():
-                        duplicates += 1
-                        continue
-                    deadline_match=re.search(r"(?:by|before|deadline|due|closing date|submit by)\\s+([^.;,]{3,50})",body,re.I)
-                    decision_deadline=deadline_match.group(1).strip() if deadline_match else "Not stated publicly — confirm with buyer"
-                    summary=("DISCOVERY CANDIDATE — NOT YET QUALIFIED. "
-                             f"Signal class: {signal_type}. Specific public fact: {title}. "
-                             f"Decision/deadline: {decision_deadline}. "
-                             "Unknown: actual external-data coverage, country/category/customer granularity, "
-                             "budget, and accountable decision owner. Verify original post, buyer and timeline "
-                             "before assigning P1/P2 or sending an offer. "
-                             f"Source detail: {desc}")[:2000]
-                    cur.execute("""INSERT INTO leads
-                        (company_name,country,commercial_trigger,evidence_summary,evidence_url,
-                         evidence_date,source_name,fit_score)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,NULL)""",
-                        (company,country,title[:1000],summary,url,dt,source or "Public web search"))
-                    inserted+=1
-                    exported.append({"company":company,"country":country,"signal_class":signal_type,
-                        "fact":title,"deadline":decision_deadline,"unknown_gap":"External data coverage, granularity, budget and accountable owner are not yet verified.",
-                        "source_url":url,"source_date":dt.isoformat(),"qualification":"Candidate only — not a confirmed buyer"})
+    inserted=0; rejected=0; duplicates=0; weak=0; exported=[]
+    conn=psycopg2.connect(dsn,sslmode="require",connect_timeout=15) if dsn else None
+    try:
+        cur=conn.cursor() if conn else None
+        for row in found.values():
+            title,url,desc,pub,source,country,*meta=row
+            signal_type=meta[0] if meta else "external_trigger"
+            company=extract_company(title) or extract_linkedin_company(title,desc)
+            body=f"{title}. {desc}"
+            has_data_intent=bool(DATA_GAP.search(body))
+            has_business_pain=bool(BUSINESS_PAIN.search(body))
+            explicit_project=signal_type=="linkedin_project" and has_data_intent
+            relevant_role=signal_type=="linkedin_role" and has_data_intent and has_business_pain
+            if not company or not ((has_data_intent and has_business_pain) or explicit_project or relevant_role):
+                rejected += 1
+                continue
+            dt=parse_date(pub)
+            if not dt or (datetime.now(timezone.utc).date()-dt).days > 7:
+                weak += 1
+                continue
+            deadline_match=re.search(r"(?:by|before|deadline|due|closing date|submit by)\s+([^.;,]{3,50})",body,re.I)
+            decision_deadline=deadline_match.group(1).strip() if deadline_match else "Not stated publicly — confirm with buyer"
+            record={"company":company,"country":country,"signal_class":signal_type,
+                "fact":title,"decision_deadline":decision_deadline,
+                "unknown_gap":"External-data coverage, country/category/customer granularity, budget and accountable decision owner are not verified.",
+                "source_url":url,"source_date":dt.isoformat(),
+                "qualification":"Candidate only — not a confirmed buyer"}
+            if cur:
+                cur.execute("SELECT 1 FROM leads WHERE evidence_url=%s LIMIT 1",(url,))
+                if cur.fetchone():
+                    duplicates += 1
+                    continue
+                summary=("DISCOVERY CANDIDATE — NOT YET QUALIFIED. "
+                         f"Signal class: {signal_type}. Specific public fact: {title}. "
+                         f"Decision/deadline: {decision_deadline}. "
+                         "Unknown: actual external-data coverage, country/category/customer granularity, "
+                         "budget, and accountable decision owner. Verify original post, buyer and timeline "
+                         "before assigning P1/P2 or sending an offer. "
+                         f"Source detail: {desc}")[:2000]
+                cur.execute("""INSERT INTO leads
+                    (company_name,country,commercial_trigger,evidence_summary,evidence_url,
+                     evidence_date,source_name,fit_score)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,NULL)""",
+                    (company,country,title[:1000],summary,url,dt,source or "Public web search"))
+                inserted += 1
+            exported.append(record)
+        if conn: conn.commit()
+    finally:
+        if conn: conn.close()
+
     os.makedirs("output",exist_ok=True)
     import json, csv
     with open("output/discovery_candidates.json","w",encoding="utf-8") as f:
         json.dump({"generated_at":datetime.now(timezone.utc).isoformat(),"rolling_window_days":7,
-                   "candidates":exported,"raw_results":len(found),"inserted":inserted,
-                   "rejected":rejected,"undated_or_stale":weak,"duplicates":duplicates},f,indent=2)
+                   "candidates":exported,"raw_results":len(found),"database_writes":inserted,
+                   "rejected":rejected,"undated_or_stale":weak,"duplicates":duplicates,
+                   "database_mode":"postgres" if dsn else "artifact_only"},f,indent=2)
     with open("output/discovery_candidates.csv","w",newline="",encoding="utf-8") as f:
-        fields=["company","country","signal_class","fact","deadline","unknown_gap","source_url","source_date","qualification"]
+        fields=["company","country","signal_class","fact","decision_deadline","unknown_gap","source_url","source_date","qualification"]
         writer=csv.DictWriter(f,fieldnames=fields); writer.writeheader(); writer.writerows(exported)
-    log.info("Discovery complete: raw_items=%d inserted_candidates=%d rejected_weak_match=%d stale_or_undated=%d duplicates=%d",
-             len(found),inserted,rejected,weak,duplicates)
+    log.info("Discovery complete: raw_items=%d candidates=%d database_writes=%d rejected=%d stale_or_undated=%d duplicates=%d",
+             len(found),len(exported),inserted,rejected,weak,duplicates)
     return 0
 
 if __name__=="__main__": sys.exit(main())
